@@ -42,13 +42,13 @@ int login(char* id, char* pw) {
     free(query);
     if (mysql_fetch_row(db->res)) {
         freeresult(db->res);
-        return 0;
+        return 1;
     }
     else {
         if (db->res) {
             freeresult(db->res);
         }
-        return 1;
+        return 0;
     }    
 }
 
@@ -104,7 +104,7 @@ char* viewasset(char* ownerid) {
     db->res = mysql_store_result(db->conn);
     free(query);
     
-    int len = 3;
+    int len = 0;
     while (db->row = mysql_fetch_row(db->res)) {
         len += strlen(db->row[0]) + strlen(db->row[0]) + strlen(db->row[0]) + 3;
     }
@@ -113,10 +113,7 @@ char* viewasset(char* ownerid) {
     }
 
     char* result = malloc(sizeof(char)*len);
-    result[0] = 'A';
-    result[1] = 'C';
-    result[2] = ':';
-    char* cursor = result[3];
+    char* cursor = result;
     mysql_data_seek(db->res, 0);
     while (db->row = mysql_fetch_row(db->res)) {
         for (int i = 0; i < 3; i++) {
@@ -168,9 +165,9 @@ char* getpercentileof(char* ownerid) {
     
     float x = ((float)ownerasset - atof(db->row[0])) / atof(db->row[1]);
     float p = gsl_cdf_gaussian_P(x, 1.0); 
-    int len = 9 + strlen(ownerassetstr);
+    int len = 6 + strlen(ownerassetstr);
     char* result = malloc(sizeof(char)*len);
-    sprintf_s(result, len, "GP:%.2f,%s", p,ownerassetstr);
+    sprintf_s(result, len, "%s,%.2f", ownerassetstr,p);
     freeresult(db->res);
     return result;
 }
