@@ -115,7 +115,7 @@ char* viewasset(char* ownerid) {
     char* result = malloc(sizeof(char)*len);
     result[0] = 'A';
     result[1] = 'C';
-    result[2] = ',';
+    result[2] = ':';
     char* cursor = result[3];
     mysql_data_seek(db->res, 0);
     while (db->row = mysql_fetch_row(db->res)) {

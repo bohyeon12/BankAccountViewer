@@ -37,8 +37,7 @@ int main(){
     //DB연결
     if (connectDB()) {
         printf("cannot connect the database server");
-        WSACleanup();
-        exit(EXIT_FAILURE);
+        ENDSERVER
     }
 
     // u_long optval = 0;//optval == 0 이면 blocking, != 0 이면 non-blocking
@@ -112,8 +111,7 @@ int main(){
         } else {//연결이 실패하고 그것에 대한 처리와 출력
             printf("Failed to connect\n");
             closeDB();
-            WSACleanup();
-            exit(EXIT_FAILURE);
+            ENDSERVER
         }
     }
 
