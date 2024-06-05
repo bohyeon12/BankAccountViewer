@@ -133,7 +133,7 @@ char* viewasset(char* ownerid) {
     return result;
 }
 
-float getpercentileof(char* ownerid) {
+char* getpercentileof(char* ownerid) {
     char* query = makequery("SELECT SUM(DEPOSIT) AS ASSET  FROM ACCOUNT WHERE OWNER_ID = '?' ",1,ownerid);
 
     if (mysql_query(db->conn, query)) {
@@ -149,6 +149,7 @@ float getpercentileof(char* ownerid) {
     }
 
     db->row = mysql_fetch_row(db->res);
+    char* ownerassetstr = db->row[0];
     int ownerasset = atoi(db->row[0]);
     freeresult(db->res);
     
@@ -167,9 +168,11 @@ float getpercentileof(char* ownerid) {
     
     float x = ((float)ownerasset - atof(db->row[0])) / atof(db->row[1]);
     float p = gsl_cdf_gaussian_P(x, 1.0); 
-    
+    int len = 9 + strlen(ownerassetstr);
+    char* result = malloc(sizeof(char)*len);
+    sprintf_s(result, len, "GP:%.2f,%s", p,ownerassetstr);
     freeresult(db->res);
-    return p;
+    return result;
 }
 
 char* makequery(char* stmt, int n, ...) {

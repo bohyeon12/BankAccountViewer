@@ -17,7 +17,7 @@ int connectDB(void);
 int registuser(char*, char*, char*);
 char* makequery(char*, int, ...);
 void closeDB(void);
-float getpercentileof(char*);
+char* getpercentileof(char*);
 char* viewasset(char*);
 int deleteaccount(char*, char*, char*);
 int putaccount(char* , char* , char* , char*);

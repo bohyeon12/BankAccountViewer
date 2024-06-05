@@ -1,3 +1,4 @@
+
 #include"DB.h"
 #define PORT 9909
 #define ENDSERVER WSACleanup();exit(EXIT_FAILURE);
@@ -159,7 +160,7 @@ void ProcessNewMessage(int nClientSocket){
             }
         }
     } else {
-        printf("요청 : %s\n",buff);
+        printf("% s\n",buff);
         buff[2] = '\0';
         char* cursor;
         if (strcmp("MJ", buff) == 0) {
@@ -172,12 +173,22 @@ void ProcessNewMessage(int nClientSocket){
             else {
                 send(nClientSocket, "MJ:회원가입 실패", 17, 0);
             }
+            closesocket(nClientSocket);
+            for (int i = 0; i < MAXCLIENT; i++) {
+                if (nArrClient[i] == nClientSocket) {
+                    nArrClient[i] = 0;
+                    break;
+                }
+            }
+
         }
         else if (strcmp("AC", buff) == 0) {
             char* ownerid = buff[3];
-            char* result = viewasset(ownerid);
+            char* result = NULL;
+            result = viewasset(ownerid);
             if (result) {
                 send(nClientSocket, result, strlen(result)+1, 0);
+                free(result);
             }
             else {
                 send(nClientSocket, "AC:조회실패", 9, 0);
@@ -213,6 +224,18 @@ void ProcessNewMessage(int nClientSocket){
             }
             else {
                 send(nClientSocket, "DO:삭제 실패", 13, 0);
+            }
+        }
+        else if (strcmp("GP", buff) == 0) {
+            char* ownerid = buff[3];
+            char* result = NULL;
+            result = getpercentileof(ownerid);
+            if (result) {
+                send(nClientSocket,result, strlen(result)+1, 0);
+                free(result);
+            }
+            else {
+                send(nClientSocket, "GP:조회 실패", 13, 0);
             }
         }
        // else if (strcmp("EX", buff) == 0) {
