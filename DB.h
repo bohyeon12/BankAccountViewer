@@ -14,12 +14,12 @@ struct DAO
 };
 static struct DAO* db;
 int connectDB(void);
-int registuser(char*, char*, char*);
-char* makequery(char*, int, ...);
+int registuser(char* id,char*pw, char* name, char* age); //MJ T0F1
+char* makequery(char* stmt, int n, ...);
 void closeDB(void);
-char* getpercentileof(char*);
-char* viewasset(char*);
-int deleteaccount(char*, char*, char*);
-int putaccount(char* , char* , char* , char*);
-int login(char*, char*);
+char* getpercentileof(char* id);//GP T1F0
+char* viewasset(char* id);//AC T1F0
+int deleteaccount(char* id, char* bank, char* acctnum);//DO T0F1
+int putaccount(char* id,char* acctnum, char* bank, char* deposit);//
+int login(char* id, char* pw);
 void freeresult(MYSQL_RES*);
