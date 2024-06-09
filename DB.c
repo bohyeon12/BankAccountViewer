@@ -141,7 +141,6 @@ char* getpercentileof(char* id) {
         fprintf(stderr, "Store Result Error: %s\n", mysql_error(db->conn));
         return -1;
     }
-    if (db->res->row_count == 0) return "";
     
         db->row = mysql_fetch_row(db->res);
     char* agestr = malloc(strlen(db->row[0])+1);
