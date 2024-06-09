@@ -1,15 +1,5 @@
 #include "server.h"
 
-struct sockaddr_in srv;
-fd_set fr, fw, fe; // File Descriptor
-
-int nSocket;
-int nArrClient[MAXCLIENT] = { 0 };
-
-void ProcessNewRequest();
-void ProcessNewMessage(int nClientSocket);
-void readargs(char* buff, char** args, int n);
-
 int main() {
     int nRet = 0;
     // Initialize WSA
@@ -20,11 +10,18 @@ int main() {
     }
     printf("WSA initialized successfully\n");
 
+    //DB연결
+    if (connectDB()) {
+        printf("cannot connect the database server");
+        ENDSERVER
+    }
+
     // Initialize socket
     nSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (nSocket < 0) {
         printf("The socket not opened\n");
-        ENDSERVER
+        WSACleanup();
+        exit(EXIT_FAILURE);
     }
     printf("The socket opened successfully\n");
 
@@ -41,6 +38,7 @@ int main() {
     if (nRet != 0) {
         printf("The setsockopt call failed\n");
         ENDSERVER
+        exit(EXIT_FAILURE);
     }
     printf("The setsockopt call succeeded\n");
 
@@ -48,7 +46,8 @@ int main() {
     nRet = bind(nSocket, (struct sockaddr*)&srv, sizeof(struct sockaddr));
     if (nRet < 0) {
         printf("Failed to bind to local port\n");
-        ENDSERVER
+        ENDSERVER;
+        exit(EXIT_FAILURE);
     }
     printf("Successfully binded to local port\n");
 
@@ -56,7 +55,8 @@ int main() {
     nRet = listen(nSocket, 10);
     if (nRet < 0) {
         printf("Failed to start listening on local port\n");
-        ENDSERVER
+        ENDSERVER;
+        exit(EXIT_FAILURE);
     }
     printf("Successfully started listening on local port\n");
 
@@ -138,53 +138,131 @@ void ProcessNewMessage(int nClientSocket) {
         }
     }
     else {
-        printf("%s\n", buff);
+        printf("% s\n", buff);
         buff[2] = '\0';
-        if (strcmp("MJ", buff) == 0) { // 회원가입
-            char* args[4] = { NULL, }; // id, pw, 이름, 나이
-            readargs(buff + 3, args, 4);
-            printf("args %s,%s,%s,%s\n", args[0], args[1], args[2], args[3]);
+        char* cursor;
+        if (strcmp("MJ", buff) == 0) { //회원가입
+            char* args[4] = { NULL, }; //id, pw, 이름, 나이
+            readbuff(buff + 3, args, 4);
             int done = 1;
+            char message[5] = { 0, };
 
-            char message[25] = { 0 };
             done = registuser(args[0], args[1], args[2], args[3]);
-            sprintf_s(message, 25, "MJ:%s,%d", args[1], done);
-            printf("%s\n", message);
-            send(nClientSocket, message, strlen(message), 0);
+            sprintf_s(message, 5, "MJ:%d", done);
+            send(nClientSocket, message, strlen(message)+1, 0);
         }
         else if (strcmp("AC", buff) == 0) {
             char* id = buff + 3;
-            char* result = viewasset(id);
-
+            char* result = NULL;
+            result = viewasset(id);
+            
             int len = 0;
             char* message = NULL;
             if (result) {
-                len = 5 + strlen(id) + strlen(result);
-                message = malloc(len);
+                len = 5 + strlen(id) + strlen(result) + 1;
+                message = malloc(sizeof(char) * (len));
                 sprintf_s(message, len, "AC:%s,%s", id, result);
                 free(result);
             }
             else {
-                message = malloc(25);
-                sprintf_s(message, 25, "AC:%s,0", id);
+                message = malloc(sizeof(char) * 26);
+                sprintf_s(message, 26, "AC:%s,-", id);
             }
-            send(nClientSocket, message, strlen(message), 0);
+            send(nClientSocket, message, len, 0);
             free(message);
         }
-        // Add other commands similarly
+        else if (strcmp("LI", buff) == 0) {
+            char* args[2] = { NULL, };
+            readbuff(buff + 3, args, 2);
+            char message[25] = { 0, };
+            int done = login(args[0], args[1]);
+            sprintf_s(message, 25, "LI:%s,%d", args[0], done);
+            send(nClientSocket, message, strlen(message)+1, 0);
+        }
+        else if (strcmp("DO", buff) == 0) {//계좌삭제
+            char* args[4] = { 0, };//id,pw,은행,계좌번호
+            readbuff(buff + 3, args, 4);
+            int done = login(args[0], args[1]);
+            char message[26] = { 0, };
+            if (done != 0) {
+                sprintf_s(message, 26, "DO:%s,%d\0", args[0], done);
+                send(nClientSocket, message, strlen(message)+1, 0);
+            }
+            else {
+                done = deleteaccount(args[0], args[2], args[3]);
+                sprintf_s(message, 26, "DO:%s,%d\0", args[2], done);
+                send(nClientSocket, message, strlen(message)+1, 0);
+            }
+        }
+        else if (strcmp("GP", buff) == 0) {
+            char* ownerid = buff + 3;
+            char* result = NULL;
+            result = getpercentileof(ownerid);
+            char message[60] = { 0, };
+            if (result) {
+                sprintf_s(message, 60, "GP:%s,%s", ownerid, result);
+                
+            }
+            else {
+                sprintf_s(message, 26, "GP:%s,*", ownerid);
+            }
+            printf("%s\n", message);
+            send(nClientSocket, message, strlen(message)+1, 0);
+        }
+        else if (strcmp("IA", buff) == 0) { 
+            char* args[5] = { NULL, }; //id,pw,계좌번호,은행이름,잔액
+            readbuff(buff + 3, args, 5); 
+            int done = login(args[0], args[1]);
+            char message[26] = { 0, };
+            if (done != 0) {
+                sprintf_s(message, 26, "IA:%s,%d", args[0], done);
+                send(nClientSocket, message, strlen(message)+1, 0);
+            }
+            else {
+                done = putaccount(args[0], args[2], args[3], args[4]);
+                sprintf_s(message, 26, "IA:%s,%d", args[0], done);
+                send(nClientSocket, message, strlen(message)+1, 0);
+            }
+        }
     }
 }
 
-void readargs(char* cursor, char** args, int n) {
+
+void readbuff(char* buff, char** args, int maxArgs) {
+    char* cursor;
+    cursor = buff;
     args[0] = cursor;
     int i = 1;
-    while (i < n) {
+    while (i < maxArgs) {
         if (*cursor == ',') {
             *cursor++ = '\0';
             args[i++] = cursor;
         }
         cursor++;
     }
+    /*
+    int start = 0, end = 0, i = 0;
+
+    while (buff[end] != '\0') {
+        if (buff[end] == ',') {
+            buff[end] = '\0';  // No ull-terminate the current token
+            if (i < maxArgs) {
+                args[i++] = buff + start;
+            }
+            start = end + 1;
+        }
+        end++;
+    }
+
+    // Add the last token
+    if (i < maxArgs) {
+        args[i++] = buff + start;
+    }
+
+    // Ensure the remaining pointers in args are NULL
+    while (i < maxArgs) {
+        args[i++] = NULL;
+    }*/
 }
 
 /*
@@ -334,118 +412,7 @@ void ProcessNewMessage(int nClientSocket){
             }
         }
     } else {
-        printf("% s\n",buff);
-        buff[2] = '\0';
-        char* cursor;
-        if (strcmp("MJ", buff) == 0) { //회원가입
-            char* args[4] = {NULL,}; //id, pw, 이름, 나이
-            readargs(buff[3], args, 4);
-            printf("%s,%s,%s,%s\n", args[0], args[1], args[2], args[3]);
-            int done = 1;
-
-            char message[25] = { NULL, };
-
-            done = registuser(args[0],args[1], args[2], args[3]);
-            sprintf_s(message, 25, "MJ:%s,%d", args[1],done);
-            printf("%s\n", message);
-            send(nClientSocket, message, strlen(message), 0);
-            closesocket(nClientSocket);
-            for (int i = 0; i < MAXCLIENT; i++) {
-                if (nArrClient[i] == nClientSocket) {
-                    nArrClient[i] = 0;
-                    break;
-                }
-            }
-
-        }
-        else if (strcmp("AC", buff) == 0) {
-            char* id = buff[3];
-            char* result = NULL;
-            result = viewasset(id);
-
-            int len = 0;
-            char* message = NULL;
-            
-             if (result) {
-                 len = 5 + strlen(id) + strlen(result);
-                 message = malloc(sizeof(char) * len);
-                 sprintf_s(message, len, "AC:%s,%s", id,result);
-                 free(result);
-            }
-            else {
-                 message = malloc(sizeof(char) * 25);
-                 sprintf_s(message, 25, "AC:%s,0", id, result);
-            }
-            send(nClientSocket, message, len, 0);
-            free(message);
-        }
-        else if (strcmp("LI", buff) == 0) {
-            char* args[2] = { 0, };
-            readargs(buff[3], args, 2);
-            char message[25] = { 0, };
-            
-            int done = login(args[0],args[1]);
-            sprintf_s(message, 25, "LI:%s,%d", args[0],done);
-            send(nClientSocket, message, strlen(message), 0);
-        }
-        else if (strcmp("LO", buff) == 0) {
-            char* ownerid = buff[3];
-            char message[25] = {0,};
-            sprintf_s(message, 25, "LO:%s,0", ownerid);
-            send(nClientSocket, message, strlen(message), 0);
-            closesocket(nClientSocket);
-            free(message);
-            for (int i = 0; i < MAXCLIENT; i++) {
-                if (nArrClient[i] == nClientSocket) {
-                    nArrClient[i] = 0;
-                    break;
-                }
-            }
-        }
-        else if (strcmp("DO", buff) == 0) {//계좌삭제
-            char* args[4] = { 0, };//id,pw,은행,계좌번호
-            readargs(buff[3], args, 4);
-            int done = login(args[0], args[1]);
-            char message[25] = { 0, };
-            if (done != 0) {
-                sprintf_s(message, 25, "DO:%s,%d", args[0],done);
-                send(nClientSocket, message, strlen(message), 0);
-            }
-            else {
-                done = deleteaccount(args[0], args[2], args[3]);
-                sprintf_s(message, 25, "DO:%s,%d", args[2], done);
-                send(nClientSocket, message, strlen(message), 0);
-            }
-        }
-        else if (strcmp("GP", buff) == 0) {
-            char* ownerid = buff[3];
-            char* result = NULL;
-            result = getpercentileof(ownerid);
-            char message[35] = { 0, };
-            if (result) {
-                sprintf_s(message, 35, "GP:%s,%s", ownerid,result);
-                free(result);
-            }
-            else {
-                sprintf_s(message, 25, "GP:%s,0", ownerid);
-            }
-            send(nClientSocket, message, strlen(message), 0);
-        }
-        else if (strcmp("IA", buff) == 0) {
-            char* args[5] = { NULL, }; //id,pw,계좌번호,은행이름,잔액
-            readargs(buff[3], args, 5);
-            int done = login(args[0], args[1]);
-            char message[25] = { 0, };
-            if (done != 0) {
-                sprintf_s(message, 25, "IA:%s,%d", args[0],done);
-                send(nClientSocket, message, strlen(message), 0);
-            }
-            else {
-                done = putaccount(args[0], args[2], args[3], args[4]);
-                sprintf_s(message, 25, "IA:%s,%d", args[2], done);
-                send(nClientSocket, message, strlen(message), 0);
-            }
-        }
+        
     }
 }
 

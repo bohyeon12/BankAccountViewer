@@ -8,7 +8,6 @@ int connectDB() {
     char* database = "BANK";
 
     db->conn = mysql_init(NULL);
-    printf("%u\n", db->conn);
 
     /* Connect to database */
     if (!mysql_real_connect(db->conn, server, user, password, database, 0, NULL, 0)) {
@@ -19,7 +18,7 @@ int connectDB() {
 }
 
 int registuser(char* id, char* pw, char* name, char* age) {
-    char* query = makequery("INSERT INTO USER VALUES ('?','?','?',?)", 3,name, id, pw,age);
+    char* query = makequery("INSERT INTO USER(NAME,ID,PW,AGE) VALUES ('?','?','?',?)", 4,name, id, pw,age);
     /* send SQL query */
     if (mysql_query(db->conn, query)) {
         fprintf(stderr, "%s\n", mysql_error(db->conn));
@@ -30,8 +29,7 @@ int registuser(char* id, char* pw, char* name, char* age) {
     return 0;
 }
 int login(char* id, char* pw) {
-    char* query = makequery("SELECT * FROM USER WHERE ID = ? AND PW = ?", 2, id, pw);
-
+    char* query = makequery("SELECT * FROM USER WHERE ID = '?' AND PW = '?'", 2, id, pw);
     if (mysql_query(db->conn, query)) {
         fprintf(stderr, "%s\n", mysql_error(db->conn));
         if (query) free(query);
@@ -40,20 +38,19 @@ int login(char* id, char* pw) {
 
     db->res = mysql_store_result(db->conn);
     free(query);
-    if (mysql_fetch_row(db->res)) {
+    if (db->res->row_count == 1) {
+        freeresult(db->res);
+        return 0;
+    }
+    else{
         freeresult(db->res);
         return -1;
-    }
-    else {
-        if (db->res) {
-            freeresult(db->res);
-        }
-        return 0;
     }    
+    
 }
 
 int putaccount(char* id, char* acctnum, char* bank, char* deposit) {
-    char* query = makequery("SELECT * FROM ACCOUNT WHERE NUM = ? AND BANK = ?",2,acctnum,bank);
+    char* query = makequery("SELECT * FROM ACCOUNT WHERE NUM = ? AND BANK = '?'",2,acctnum,bank);
     if (mysql_query(db->conn, query)) {
         fprintf(stderr, "%s\n", mysql_error(db->conn));
         if (query) free(query);
@@ -80,7 +77,7 @@ int putaccount(char* id, char* acctnum, char* bank, char* deposit) {
 }
 
 int deleteaccount(char* id, char* bank, char* acctnum) {
-    char* query = makequery("DELETE FROM ACCOUNT WHERE BANK = ? AND NUM = ? AND ONWER_ID = ?", 3, bank, acctnum, id);
+    char* query = makequery("DELETE FROM ACCOUNT WHERE BANK = '?' AND NUM = ? AND OWNER_ID = '?'", 3, bank, acctnum, id);
 
     if (mysql_query(db->conn, query)) {
         fprintf(stderr, "%s\n", mysql_error(db->conn));
@@ -93,8 +90,8 @@ int deleteaccount(char* id, char* bank, char* acctnum) {
 }
 
 char* viewasset(char* id) {
-    char* query = makequery("SELECT NUM, BANK, DEPOSIT FROM ACCOUNT WHERE OWNER_ID = ?", 1, id);
-    
+    char* query = makequery("SELECT NUM, BANK, DEPOSIT FROM ACCOUNT WHERE OWNER_ID = '?'", 1, id);
+ 
     if (mysql_query(db->conn, query)) {
         fprintf(stderr, "%s\n", mysql_error(db->conn));
         if (query) free(query);
@@ -110,7 +107,7 @@ char* viewasset(char* id) {
         len += strlen(db->row[0]) + strlen(db->row[0]) + strlen(db->row[0]) + 3;
     }
     if (len == 0) {
-        return NULL;
+        return "";
     }
 
     char* result = malloc(sizeof(char)*len);
@@ -122,8 +119,7 @@ char* viewasset(char* id) {
             while (*p) {
                 *cursor++ = *p++;
             }
-            if (i == 2)*cursor++ = '\n';
-            else *cursor++ = ',';
+            *cursor++ = ',';
         }
     }
     *(--cursor) = '\0';
@@ -132,7 +128,7 @@ char* viewasset(char* id) {
 }
 
 char* getpercentileof(char* id) {
-    char* query = makequery("SELECT AGE  FROM USER WHERE ID = ? ", 1, id);
+    char* query = makequery("SELECT AGE  FROM USER WHERE ID = '?'", 1, id);
 
     if (mysql_query(db->conn, query)) {
         fprintf(stderr, "%s\n", mysql_error(db->conn));
@@ -145,11 +141,13 @@ char* getpercentileof(char* id) {
         fprintf(stderr, "Store Result Error: %s\n", mysql_error(db->conn));
         return -1;
     }
-
-    db->row = mysql_fetch_row(db->res);
-    char* agestr = db->row[0];
+    if (db->res->row_count == 0) return "";
+    
+        db->row = mysql_fetch_row(db->res);
+    char* agestr = malloc(strlen(db->row[0])+1);
+    strcpy_s(agestr, strlen(db->row[0]) + 1, db->row[0]);
     freeresult(db->res);
-    query = makequery("SELECT SUM(DEPOSIT) AS ASSET  FROM ACCOUNT WHERE OWNER_ID = ? ",1,id);
+    query = makequery("SELECT SUM(DEPOSIT) AS ASSET  FROM ACCOUNT WHERE OWNER_ID = '?' ",1,id);
 
     if (mysql_query(db->conn, query)) {
         fprintf(stderr, "%s\n", mysql_error(db->conn));
@@ -164,11 +162,11 @@ char* getpercentileof(char* id) {
     }
 
     db->row = mysql_fetch_row(db->res);
-    char* ownerassetstr = db->row[0];
-    int ownerasset = atoi(db->row[0]);
+    char* ownerassetstr = malloc(strlen(db->row[0]) + 1);
+    strcpy_s(ownerassetstr, strlen(db->row[0]) + 1, db->row[0]);
     freeresult(db->res);
     
-    query = makequery("SELECT AVG(ASSET) AS AVG, STD(ASSET) AS STD FROM (SELECT SUM(DEPOSIT) AS ASSET, OWNER_ID FROM (SELECT * FROM ACCOUNT WHERE AGE >= TRUNCATE(?,-1) AND AGE < ? + (10 - MOD(?,10))) AS SAMEAGE GROUP BY OWNER_ID) AS ASSET",1,agestr,agestr,agestr);
+    query = makequery("SELECT AVG(ASSET) AS AVG, STD(ASSET) AS STD FROM (SELECT SUM(DEPOSIT) AS ASSET, OWNER_ID FROM (SELECT * FROM ACCOUNT WHERE OWNER_ID IN (SELECT ID FROM USER WHERE AGE >= TRUNCATE(?,-1) AND AGE < ? + (10 - MOD(?,10)))) AS SAMEAGEASSET GROUP BY OWNER_ID) AS ASSETS",3,agestr,agestr,agestr);
     if (mysql_query(db->conn, query)) {
         fprintf(stderr, "%s\n", mysql_error(db->conn));
         return -1;
@@ -176,35 +174,56 @@ char* getpercentileof(char* id) {
 
     db->res = mysql_store_result(db->conn);
     db->row = NULL;
+    char* avgstr = NULL;
+    char* stdstr = NULL;
     if (db->row = mysql_fetch_row(db->res)) {
-        printf("%s | %s \n", db->row[0], db->row[1]);
-        printf("%f | %f \n", atof(db->row[0]), atof(db->row[1]));
+        avgstr = db->row[0];
+        stdstr = db->row[1];
     }
+    float x = ((float)atoi(ownerassetstr) - atof(avgstr)) / atof(stdstr);
+    float absx = x < 0 ? x * (-1) : x;
+    float absp = gsl_cdf_gaussian_P(absx, 1.0);
     
-    float x = ((float)ownerasset - atof(db->row[0])) / atof(db->row[1]);
-    float p = gsl_cdf_gaussian_P(x, 1.0); 
-    int len = 6 + strlen(ownerassetstr);
-    char* result = malloc(sizeof(char)*len);
-    sprintf_s(result, len, "%s,%.2f", ownerassetstr,p);
+    float p = absx < 0 ? absp : 1 - absp;
+    char* result[35] = {NULL,};
+    sprintf_s(result, 35, "%s,%.3f,%s,%s", ownerassetstr,p,avgstr,agestr);
     freeresult(db->res);
+    free(agestr);
+    free(ownerassetstr);
     return result;
 }
 
 char* makequery(char* stmt, int n, ...) {
-    printf("%s\n", stmt);
     va_list ap;
     va_start(ap, stmt);
-    char **strarr = malloc(sizeof(char*) * (n+1));
-    strarr[0] = stmt;
+    char **strarr = malloc(sizeof(char*) * n);
     int len = strlen(stmt) + 1 - n;
-    for (int i = 1; i <= n; i++) {
+    int i;
+    for (i = 0; i < n; i++) {
         strarr[i] = va_arg(ap, char*);
         len += strlen(strarr[i]); 
     }
     va_end(ap);
     char* query = malloc(sizeof(char) * len);
+    int cursor1 = 0, cursor2 = 0, cursor3 = 0;
+    i = 0;
+    while (stmt[cursor2] != '\0') {
+        if (stmt[cursor2] == '?') {
+            cursor3 = 0;
+            while (strarr[i][cursor3] != '\0') {
+                query[cursor1++] = strarr[i][cursor3++];
+            }
+            i++;
+            cursor2++;
+        }
+        else {
+            query[cursor1++] = stmt[cursor2++];
+        }
+    }
+    query[cursor1] = '\0';
+    /*
     char*  cursor1 = query;
-    char* cursor2 = strarr[0];
+    char* cursor2 = stmt;
     int i = 1;
     while (*cursor2) {
         if (*cursor2 == '?') {
@@ -219,6 +238,7 @@ char* makequery(char* stmt, int n, ...) {
         }
     } 
     *cursor1 = '\0';
+    **/
     
     if(strarr)free(strarr); 
     return query;
