@@ -186,7 +186,7 @@ char* getpercentileof(char* id) {
     
     float p = x < 0 ? absp : 1 - absp;
     char* result[35] = {NULL,};
-    sprintf_s(result, 35, "%s,%.3f,%d,%s", ownerassetstr, p, atof(avgstr), agestr);
+    sprintf_s(result, 35, "%s,%.3f,%s,%s", ownerassetstr, p, avgstr, agestr);
     freeresult(db->res);
     free(agestr);
     free(ownerassetstr);
