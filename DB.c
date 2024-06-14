@@ -142,7 +142,7 @@ char* getpercentileof(char* id) {
         return -1;
     }
     
-        db->row = mysql_fetch_row(db->res);
+    db->row = mysql_fetch_row(db->res);
     char* agestr = malloc(strlen(db->row[0])+1);
     strcpy_s(agestr, strlen(db->row[0]) + 1, db->row[0]);
     freeresult(db->res);
@@ -187,6 +187,7 @@ char* getpercentileof(char* id) {
     float p = x < 0 ? absp : 1 - absp;
     char* result[35] = {NULL,};
     sprintf_s(result, 35, "%s,%.3f,%s,%s", ownerassetstr, p, avgstr, agestr);
+    printf("%s\n", result);
     freeresult(db->res);
     free(agestr);
     free(ownerassetstr);

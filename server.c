@@ -159,10 +159,10 @@ void ProcessNewMessage(int nClientSocket) {
             int len = 0;
             char* message = NULL;
             if (result) {
-                len = 5 + strlen(id) + strlen(result) + 1;
+                len = 5 + strlen(id) + strlen(result);
                 message = malloc(sizeof(char) * (len));
                 sprintf_s(message, len, "AC:%s,%s", id, result);
-                free(result);
+                if(*result != '\0')free(result);
             }
             else {
                 message = malloc(sizeof(char) * 26);
@@ -206,7 +206,6 @@ void ProcessNewMessage(int nClientSocket) {
             else {
                 sprintf_s(message, 26, "GP:%s,*", ownerid);
             }
-            printf("%s\n", message);
             send(nClientSocket, message, strlen(message)+1, 0);
         }
         else if (strcmp("IA", buff) == 0) { 
